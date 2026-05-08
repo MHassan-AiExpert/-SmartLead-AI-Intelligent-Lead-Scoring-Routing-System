@@ -1,0 +1,718 @@
+{
+  "name": "AI-Powered Lead Scoring & Sales Workflow Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "5f8b408c-efb2-4cd7-a5af-d6c2d5165dd6",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3e58a66a-d729-4e4e-83bc-5145605caeaa",
+      "name": "Webhook",
+      "webhookId": "5f8b408c-efb2-4cd7-a5af-d6c2d5165dd6"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "= {{ $json.score }}",
+                    "rightValue": "HOT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "502a8584-9736-4219-9224-cec77f9e96be"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e926c4c1-20e4-403d-93e3-46fa379a4442",
+                    "leftValue": "= {{ $json.score }}",
+                    "rightValue": "WARM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c66b84eb-5ec6-4f58-a3f1-316e60f1d108",
+                    "leftValue": "={{ $json.score }}",
+                    "rightValue": "COLD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        32
+      ],
+      "id": "f8a50610-83b3-4c2c-a218-cd1e3cbfbca3",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        208
+      ],
+      "id": "4dd757e6-b5c1-4415-90d2-b4b338fa03be",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "aeRYShlomstXUfJC",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Score this lead:\nName: {{ $json.body.name }}\nEmail: {{ $json.body.email }}\nCompany: {{ $json.body.company }}\nPhone: {{ $json.body.phone }}\nSource: {{ $json.body.source }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are an expert B2B sales analyst. Analyze leads and return only raw JSON — no markdown, no explanation.\n\nScoring rules:\n- HOT: Corporate email domain, LinkedIn/referral source, B2B company signals\n- WARM: Real company but generic email, website/social source  \n- COLD: Gmail/Yahoo personal email, unknown company, unclear source\n\nAlways return this exact JSON structure:\n{\n  \"score\": \"HOT\",\n  \"reason\": \"explanation here\",\n  \"email_draft\": \"personalized email here\",\n  \"next_action\": \"what to do next\"\n}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        208,
+        0
+      ],
+      "id": "4c55c931-4b7d-4c3d-8207-74538abbc7a5",
+      "name": "Gemini AI Lead Scoring"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.text;\nconst cleaned = text.replace(/```json|```/g, '').trim();\nconst parsed = JSON.parse(cleaned);\n\nreturn {\n  score: parsed.score,\n  reason: parsed.reason,\n  email_draft: parsed.email_draft,\n  next_action: parsed.next_action,\n  original: $input.item.json\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -80
+      ],
+      "id": "4336d4af-5494-45a9-99ca-873c288c7c85",
+      "name": "Parse AI JSON Response"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B2QR0HRB6",
+          "mode": "list",
+          "cachedResultName": "lead-score"
+        },
+        "text": "=🔥 URGENT - HOT LEAD DETECTED!  Name: {{ $('Webhook').item.json.body.name }} Company: {{ $('Webhook').item.json.body.company }} Email: {{ $('Webhook').item.json.body.email }} Source: {{ $('Webhook').item.json.body.source }}  AI Score: HOT 🔥 Reason: {{ $json.reason }} Next Action: {{ $json.next_action }}  📧 Email Draft: {{ $json.email_draft }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1168,
+        -96
+      ],
+      "id": "a91f1240-871b-4ff5-98f4-56ceda0196b1",
+      "name": "HOT Lead Slack Alert",
+      "webhookId": "a84968af-f841-4cc0-a559-5678cf9be424",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "9M3N4uePtCC0mZZC",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B2QR0HRB6",
+          "mode": "list",
+          "cachedResultName": "lead-score"
+        },
+        "text": "=👋 New WARM Lead  Name: {{ $('Webhook').item.json.body.name }} Company: {{ $('Webhook').item.json.body.company }} Email: {{ $('Webhook').item.json.body.email }} Source: {{ $('Webhook').item.json.body.source }}  AI Score: WARM Reason: {{ $json.reason }} Next Action: {{ $json.next_action }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1168,
+        144
+      ],
+      "id": "cfbb23a1-329c-492c-b392-40e92375ef68",
+      "name": "WARM Lead Slack Alert",
+      "webhookId": "cc3b0cae-a5f0-4bf5-bdc7-125a31b1ba5a",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "9M3N4uePtCC0mZZC",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        384
+      ],
+      "id": "9625d1d2-79a9-4826-bc61-dd4fd853c578",
+      "name": "Cold"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ",
+          "mode": "list",
+          "cachedResultName": "SmartLead AI — Lead Scoring Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Webhook').item.json.body.name }}",
+            "email": "={{ $('Webhook').item.json.body.email }}",
+            "source ": "={{ $('Webhook').item.json.body.source }}",
+            "company": "={{ $('Webhook').item.json.body.company }}",
+            "score": "={{ $('Parse AI JSON Response').item.json.score }}",
+            "reason": "={{ $('Parse AI JSON Response').item.json.reason }}",
+            "next_action": "={{ $('Parse AI JSON Response').item.json.next_action }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source ",
+              "displayName": "source ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "next_action",
+              "displayName": "next_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1408,
+        -96
+      ],
+      "id": "d369157e-55cc-4365-b318-3272fc3f65d8",
+      "name": "Log HOT Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Rlf1fLBlO9PWzkvi",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ",
+          "mode": "list",
+          "cachedResultName": "SmartLead AI — Lead Scoring Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Webhook').item.json.body.name }}",
+            "email": "={{ $('Webhook').item.json.body.email }}",
+            "source ": "={{ $('Webhook').item.json.body.source }}",
+            "company": "={{ $('Webhook').item.json.body.company }}",
+            "score": "={{ $('Parse AI JSON Response').item.json.score }}",
+            "reason": "={{ $('Parse AI JSON Response').item.json.reason }}",
+            "next_action": "={{ $('Parse AI JSON Response').item.json.next_action }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source ",
+              "displayName": "source ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "next_action",
+              "displayName": "next_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1392,
+        144
+      ],
+      "id": "71beb299-4caa-4f97-b01c-15b2b6ce5940",
+      "name": "Log WARM Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Rlf1fLBlO9PWzkvi",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ",
+          "mode": "list",
+          "cachedResultName": "SmartLead AI — Lead Scoring Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1QQmIeiKtjpwCqI-G1IB6ObQOR9EpigyTDtH1ode5LHQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Webhook').item.json.body.name }}",
+            "email": "={{ $('Webhook').item.json.body.email }}",
+            "source ": "={{ $('Webhook').item.json.body.source }}",
+            "company": "={{ $('Webhook').item.json.body.company }}",
+            "score": "={{ $('Parse AI JSON Response').item.json.score }}",
+            "reason": "={{ $('Parse AI JSON Response').item.json.reason }}",
+            "next_action": "={{ $('Parse AI JSON Response').item.json.next_action }}",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source ",
+              "displayName": "source ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "next_action",
+              "displayName": "next_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1408,
+        384
+      ],
+      "id": "9a244cf3-222b-4207-b4fe-0f2ea3795e18",
+      "name": "Log COLD Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Rlf1fLBlO9PWzkvi",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Lead Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini AI Lead Scoring",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HOT Lead Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WARM Lead Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Lead Scoring": {
+      "main": [
+        [
+          {
+            "node": "Parse AI JSON Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI JSON Response": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HOT Lead Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Log HOT Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WARM Lead Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Log WARM Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cold": {
+      "main": [
+        [
+          {
+            "node": "Log COLD Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3d2cb47d-41c7-4e70-a1f3-0ec55ba2ee89",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a0dc71cf60afb79b7030be4a5ed03a056a0de6e28337114c2c59da2b1f418f68"
+  },
+  "id": "c3rr5Og10CgWh2xr",
+  "tags": []
+}
